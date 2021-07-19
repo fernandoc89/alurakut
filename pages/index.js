@@ -22,18 +22,67 @@ function ProfileSidebar(propriedades) {
   )
 }
 
+function ProfileRelationsBox(propriedades) {
+  return (
+    <ProfileRelationsBoxWrapper>
+      <h2 className="smallTitle">
+        {propriedades.title} ({propriedades.items.length})
+      </h2>
+    </ProfileRelationsBoxWrapper>
+  )
+}
+
 export default function Home() {
 
   const githubUser = 'fernandoc89';
-  const [communitys, setCommunitys] = React.useState([{
-    id: '45648794541515789746546',
-    title: 'Eu odeio acordar cedo',
-    image: 'https://alurakut.vercel.app/capa-comunidade-01.jpg'
-  }]);
+  const [communities, setCommunities] = React.useState([]);
 
-  //const communitys = communitys[0];
-  //const updateCommunitys;setCommunitys = communitys[1]
+  //const communities = communities[0];
+  //const updatecommunities;setCommunities = communities[1]
   const favoritesPeoples = ['juunegreiros', 'omariosouto', 'peas', 'pauloons']
+
+  // 1 - Pegar o array de dados do github
+  const [followers, setFollowers] = React.useState([]);
+
+  React.useEffect(function () {
+    // GET
+    fetch("https://api.github.com/users/fernandoc89/followers")
+      .then(async function (serverResponse) {
+        return serverResponse.json();
+      })
+      .then(async function (serverResponseFull) {
+        setFollowers(serverResponseFull);
+      })
+
+    // Buscando da API GraphQL
+    fetch('https://graphql.datocms.com/', {
+      method: 'POST',
+      headers: {
+        'Authorization': '7ab6d85f2bc5bbf2ec743c0785e093',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        "query": `query {
+          allCommunities {
+            title
+            id
+            imageUrl
+            creatorSlug
+          }
+        }`
+      })
+    })
+      .then((response) => response.json())
+      .then((fullResponse) => {
+        const communitiesFromDato = fullResponse.data.allCommunities;
+        console.log(communitiesFromDato)
+        setCommunities(communitiesFromDato)
+      })
+
+  }, [])
+  // 2 - Criar um box que vai ter um map, baseado no items do array que buscamos os followers do github
+
 
   return (
     <>
@@ -60,14 +109,26 @@ export default function Home() {
               console.log('Campo: ', formData.get('title'));
               console.log('Campo: ', formData.get('image'));
 
-              const createCommunity = {
-                id: new Date().toISOString(),
+              const community = {
                 title: formData.get('title'),
-                image: formData.get('image'),
+                imageUrl: formData.get('image'),
+                creatorSlug: githubUser,
               }
-              const updateCommunitys = [...communitys, createCommunity]
-              setCommunitys(updateCommunitys);
 
+              fetch('/api/communities', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(community)
+              })
+              .then(async (response) => {
+                const data = await response.json();
+                console.log(data.newRegistry);
+                const community = data.newRegistry;
+                const updateCommunities = [...communities, community];
+                setCommunities(updateCommunities);
+              })
             }}>
               <div>
                 <input
@@ -93,6 +154,7 @@ export default function Home() {
         </div>
         <div className="profileRelationsArea" style={{ gridArea: 'profileRelationsArea' }}>
 
+          <ProfileRelationsBox title="Seguidores" items={followers} />
           <ProfileRelationsBoxWrapper>
             <h2 className="smallTitle">
               Pessoas da Comunidades ({favoritesPeoples.length})
@@ -115,15 +177,15 @@ export default function Home() {
 
           <ProfileRelationsBoxWrapper>
             <h2 className="smallTitle">
-              Comunidades ({communitys.length})
+              Comunidades ({communities.length})
             </h2>
 
             <ul>
-              {communitys.map((index) => {
+              {communities.map((index) => {
                 return (
                   <li key={index.id}>
-                    <a href={`users/${index.title}`} key={index.title}>
-                      <img src={index.image} />
+                    <a href={`/communities/${index.id}`}>
+                      <img src={index.imageUrl} />
                       <span>{index.title}</span>
                     </a>
                   </li>
